@@ -103,8 +103,6 @@ Here is a little taste of the gameplay experience:
 
 # Features
 
-What this game offers:
-
 - Unique and engaging tactical combat
 - Smart Enemies (Good AI)
 - Dynamic Weather and Time system

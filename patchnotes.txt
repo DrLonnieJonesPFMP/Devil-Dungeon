@@ -3,6 +3,15 @@
 Devil's Dungeon Patch Notes
 
 ------------------------------
+Version 1.6.1:
+- Added mobile controls
+- Added Android support
+- Updated title screen
+- Updated GUI
+
+
+
+
 Version 1.6:
 
 

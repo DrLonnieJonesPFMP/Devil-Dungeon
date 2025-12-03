@@ -1,3 +1,27 @@
+# Version 1.6.1:
+- Added mobile controls
+- Added Android support
+- Updated title screen
+- Updated GUI
+- Several bug fixes
+
+# Version 1.6:
+
+- CR0: Reload
+  Cooldown: 85 → 65
+  Skill is now on cooldown at the start of each battle!
+
+- CR1: Light Bolt
+  Cost: 120ST → 125ST
+
+- CR1: Medium Bolt
+  Cost: 385ST → 250ST
+  Extends CR0: Reload's Cooldown by 40 turns. 
+
+- CR3: Energy Bomb
+  Cost: 5MP → 10MP
+  New effect: Now delays enemies by 200.
+
 # Version 1.5
 - Changed some Menu Descriptions
 

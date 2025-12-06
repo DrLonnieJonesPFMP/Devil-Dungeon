@@ -2,6 +2,11 @@
  * @plugindesc Allows developers to create their own map-based HUD through an in-game GUI window!
  * @author SumRndmDde
  *
+ * @param HUD Configurations
+ * @type text[]
+ * @desc The list of extra HUD configurations that can be customized and toggled between using the plugin command.
+ * @default []
+ *
  * @param Active Updating
  * @desc If 'true', then HUD pieces will automatically update whenever properties are changed in the editor.
  * @default false
@@ -9,6 +14,13 @@
  * @param Show During Events
  * @desc Sets what happens to the HUD during event processing.
  * Choices are:   hide    -    show    -    transparent
+ * @type select
+ * @option Hide
+ * @value hide
+ * @option Show
+ * @value show
+ * @option Transparent
+ * @value transparent
  * @default transparent
  *
  * @param Map Global Condition
@@ -21,13 +33,14 @@
  *
  * @param Disable Delete Key
  * @desc If 'true', the Delete key will no longer delete the currently highlighted piece.
+ * @type boolean
  * @default true
  *
  * @help
  *
  * HUD Maker
- * Version 1.43
- * SumRndmDde
+ * Version 1.6
+ * sumrnDmDde
  *
  *
  * This plugin allows developers to create their own map-based HUD through 
@@ -57,6 +70,29 @@
  *
  *
  * ==============================================================================
+ *  HUD Configurations
+ * ==============================================================================
+ *
+ * Separate configurations for the HUD can be setup.
+ *
+ * ==============================================================================
+ *
+ * The following notetags can be used in a map in order to force a switch
+ * to said configuration upon map transition:
+ *
+ *     <Default HUD Configuration>
+ *     <HUD Configuration: [config-name]>
+ *
+ * ==============================================================================
+ *
+ * In order to switch the configuration during an event, the following
+ * plugin commands can be used:
+ *
+ *     SetDefaultHUDConfiguration
+ *     SetHUDConfiguration [config-name]
+ *
+ *
+ * ==============================================================================
  *  End of Help File
  * ==============================================================================
  * 
@@ -67,11 +103,11 @@
  * If you have questions, or if you enjoyed this Plugin, please check
  * out my YouTube channel!
  *
- * https://www.youtube.com/c/SumRndmDde
+ * https://www.youtube.com/c/sumrnDmDde
  *
  *
  * Until next time,
- *   ~ SumRndmDde
+ *   ~ sumrnDmDde
  *
  */
 
@@ -80,7 +116,7 @@ SRD.HUDMaker = SRD.HUDMaker || {};
 SRD.NotetagGetters = SRD.NotetagGetters || [];
 
 var Imported = Imported || {};
-Imported["SumRndmDde HUD Maker"] = 1.43;
+Imported["SumRndmDde HUD Maker"] = 1.6;
 
 var $dataMapHUD = [];
 var $dataBattleHUD = [];
@@ -94,7 +130,51 @@ function BattleHUD() {
 }
 
 function HUDManager() {
-	throw new Error('Lol, what are you doing? HUDManager is a static class. Noob.');
+	throw new Error('Unknown Critical Error!');
+}
+
+function Sprite_HUDObject() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDCursor() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDText() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDTextEx() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDShape() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDImage() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDCodeImage() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDImageGauge() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDImageText() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDFace() {
+	this.initialize.apply(this, arguments);
+}
+
+function Sprite_HUDGauge() {
+	this.initialize.apply(this, arguments);
 }
 
 (function(_) {
@@ -127,6 +207,16 @@ if(!Imported["SumRndmDde Super Tools Engine"]) {
 }
 
 const params = PluginManager.parameters('SRD_HUDMaker');
+
+try {
+	_.configurations = JSON.parse(String(params['HUD Configurations'] || '[]'));
+} catch(e) {
+	_.configurations = [];
+}
+
+_.configurations = _.configurations.filter(function(value, index, _this) {
+	return value !== "" && _this.indexOf(value) === index;
+});
 
 _.active = String(params['Active Updating']).trim().toLowerCase() === 'true';
 
@@ -214,12 +304,22 @@ _.checkDataExists = function() {
 
 _.getFileList = function(folder) {
 	if(!_.isPlaytest) return '';
-	return FileManager.getFileList('hud', folder);
+	try {
+		return FileManager.getFileList('hud', folder);
+	} catch(_) {
+		alert("img/SumRndmDde/hud/" + folder + " does not exist. Please create it.");
+		return [];
+	}
 };
 
 _.getFirstFile = function(folder) {
 	if(!_.isPlaytest) return '';
-	return FileManager.getFirstFile('hud', folder);
+	try {
+		return FileManager.getFirstFile('hud', folder);
+	} catch(_) {
+		alert("img/SumRndmDde/hud/" + folder + " does not exist. Please create it.");
+		return "";
+	}
 };
 
 _.checkDataExists();
@@ -297,6 +397,13 @@ MapHUD.prototype.initialize = function() {
 	Stage.prototype.initialize.call(this);
 	this._isActive = false;
 	this.createHighlight();
+};
+
+MapHUD.prototype.clearAllContents = function() {
+	this.removeChildren();
+	if(this._highlight) {
+		this.addChild(this._highlight);
+	}
 };
 
 MapHUD.prototype.createHighlight = function() {
@@ -440,7 +547,7 @@ BattleHUD.prototype.updateVisibility = function() {
 // DataManager
 //-----------------------------------------------------------------------------
 
-DataManager._testExceptions.push(_.mapFile, _.battleFile);
+if (Utils.isNwjs()) { DataManager._testExceptions.push(_.mapFile, _.battleFile); }
 
 DataManager._databaseFiles.push(
 	{name: '$dataMapHUD', src: _.mapFile},
@@ -532,12 +639,14 @@ HUDManager.typeNames = [];
 HUDManager.types = {};
 HUDManager.nextId = 1;
 HUDManager.showPiecesType = true;
+HUDManager._copiedData = null;
 
 HUDManager.setup = function(data, hud) {
 	this._sprites = [];
 	this._data = data;
 	this._hud = hud;
 	this._currentId = -1;
+	this._hud.clearAllContents();
 	this.setupData();
 	this.refreshLayers();
 };
@@ -627,6 +736,12 @@ HUDManager.onChange = function() {
 	this.onChangeProperties(id);
 	this._currentId = id;
 	this.refreshHighlight();
+};
+
+HUDManager.onConfigChange = function() {
+	if($gameMap) {
+		$gameMap.setCurrentHUDConfig(MakerManager.document.getElementById('configurations').value);
+	}
 };
 
 HUDManager.onChangeProperties = function(id) {
@@ -723,6 +838,7 @@ HUDManager.setupNewSprite = function(sprite) {
 	sprite._originalY = Graphics.boxHeight / 2;
 	sprite.setHighlight(this.getHighlight());
 	this._hud.addChild(sprite);
+	console.log(sprite);
 	this._sprites.push(sprite);
 	this._currentId = this._sprites.length - 1;
 	this.refreshCurrentId();
@@ -839,14 +955,23 @@ HUDManager.onDelete = function() {
 };
 
 HUDManager.onClone = function() {
-	const data = JsonEx.makeDeepCopy(this.getData());
-	const type = data.type;
-	this._data.push(data);
-	const sprite = new this.types[type].class(data);
-	this.setupNewSprite(sprite);
-	this.refreshChoices();
-	this.onChange();
+	this._copiedData = this.getData();
 };
+
+HUDManager.onPaste = function() {
+	if(this._copiedData) {
+		const data = JsonEx.makeDeepCopy(this._copiedData);
+		const type = data.type;
+		data.id = this._data.length;
+		this._data.push(data);
+		const sprite = new this.types[type].class(data);
+		this.setupNewSprite(sprite);
+		this._currentId = data.id;
+		MakerManager.document.getElementById('choices').value = this._currentId;
+		this.refreshChoices();
+		this.onChange();
+	}
+}
 
 HUDManager.onSnapToggle = function() {
 	const container = MakerManager.document.getElementById('SnapButton');
@@ -929,17 +1054,21 @@ HUDManager.forceUpdateOptions = function() {
 	}
 };
 
-HUDManager.onFinish = function() {
+HUDManager.removeInteraction = function() {
 	this._spriteTarget = null;
 	this.getHighlight().setup(null);
 	this._sprites.forEach(function(sprite) {
 		sprite.cancelAsTarget();
 	});
+}
+
+HUDManager.onFinish = function() {
+	this.removeInteraction();
 	this.save();
 	SceneManager._scene.endHud();
 };
 
-HUDManager.save = function() {
+HUDManager.saveConfig = function() {
 	for(let i = 0; i < this._sprites.length; i++) {
 		const spr = this._sprites[i];
 		if(!spr) continue;
@@ -947,10 +1076,14 @@ HUDManager.save = function() {
 		this._data[i].y = spr._originalY;
 	}
 	if(SceneManager._scene.constructor === Scene_Map) {
-		$dataMapHUD = JsonEx.makeDeepCopy(this._data);
+		$dataMapHUD[$gameMap.currentHUDConfig()] = JsonEx.makeDeepCopy(this._data);
 	} else {
-		$dataBattleHUD = JsonEx.makeDeepCopy(this._data);
+		$dataBattleHUD[$gameMap.currentHUDConfig()] = JsonEx.makeDeepCopy(this._data);
 	}
+}
+
+HUDManager.save = function() {
+	this.saveConfig();
 	_.saveData();
 };
 
@@ -1011,16 +1144,17 @@ HUDManager.createHeader = function() {
 			</tr>`;
 };
 
-HUDManager.createInput = function(id, value) {
+HUDManager.createInput = function(id, value, min, max) {
+	const data = (!!min && !!max) ? `type="number" min="${min}" max="${max}"` : `type="text"`;
 	if(_.active) {
 		return `<tr>
 					<td>${id}:</td>
-					<td><input type="text" id="${id}" onchange="HUDManager.refreshSprite()" value="${value}"></td>
+					<td><input ${data} id="${id}" onchange="HUDManager.refreshSprite()" value="${value}"></td>
 				</tr>`;
 	} else {
 		return `<tr>
 					<td>${id}:</td>
-					<td><input type="text" id="${id}" value="${value}"></td>
+					<td><input ${data} id="${id}" value="${value}"></td>
 				</tr>`;
 	}
 };
@@ -1180,13 +1314,19 @@ HUDManager.getHtmlFocusChart = function() {
 					<th align="center">Element Manager</th>
 				</tr>
 				<tr>
+					<td align="center"><select id="configurations" onchange='HUDManager.onConfigChange()'>${HUDManager.getConfigOptions()}</select></td>
+				</tr>
+				<tr>
 					<td align="center"><select id="choices" onchange='HUDManager.onChange()'></select></td>
 				</tr>
 				<tr>
-					<td align="center"><button class="button" id="deleteButton" onclick="HUDManager.onDelete()" />Delete!</button></td>
-				</tr>
-				<tr>
-					<td align="center"><button class="button" id="cloneButton" onclick="HUDManager.onClone()" />Clone!</button></td>
+					<td align="center">
+						<div style="width: 100%;">
+							<button style="float:left" class="button" id="cloneButton" onclick="HUDManager.onClone()" />Copy!</button>
+							<button style="float:center" class="button" id="pasteButton" onclick="HUDManager.onPaste()" />Paste!</button>
+							<button style="float:right" class="button" id="deleteButton" onclick="HUDManager.onDelete()" />Delete!</button>
+						</div>
+					</td>
 				</tr>
 			</table>`;
 };
@@ -1204,6 +1344,15 @@ HUDManager.getHtmlOptionsChart = function() {
 				</tr>
 			</table>`;
 };
+
+HUDManager.getConfigOptions = function() {
+	let result = '<option value="">[Default Configuration]</option>';
+	if(_.configurations.length === 0) return result;
+	_.configurations.forEach(function(name) {
+		result += '<option value="' + name + '" ' + (name === $gameMap.currentHUDConfig() ? "selected" : "") + '>' + name + '</option>';
+	}, this);
+	return result;
+}
 
 HUDManager.getHtmlCreateChartOptions = function() {
 	let result = '';
@@ -1512,15 +1661,27 @@ HUDManager.getStyle = function() {
 
 HUDManager.checkInternet = function() {
 	if(!_.isPlaytest) return;
-	require('dns').lookup('www.google.com', function(err) {
-		if (err && err.code == "ENOTFOUND") {
-			this._internet = false;
-		} else {
-			this._internet = true;
-		}
+	// In Node (NW.js) we used dns.lookup. For plain browser JS, use navigator.onLine
+	// as a quick check and then try fetching a small resource to confirm connectivity.
+	this._internet = !!(window && window.navigator && window.navigator.onLine);
+	const finalize = function(ok) {
+		this._internet = ok;
 		this._checkComplete = true;
 		this.checkForUpdates();
-	}.bind(this));
+	}.bind(this);
+	// Try a lightweight GET to github raw JSON used later to confirm internet access.
+	try {
+		const url = 'https://raw.githubusercontent.com/SumRndmDde/PluginUpdater/master/SRD_HUDMakerResources.json';
+		const xhr = new XMLHttpRequest();
+		xhr.open('HEAD', url);
+		xhr.onload = function() {
+			finalize(xhr.status >= 200 && xhr.status < 400);
+		};
+		xhr.onerror = function() { finalize(false); };
+		xhr.send();
+	} catch(e) {
+		finalize(this._internet);
+	}
 };
 
 HUDManager.checkForUpdates = function() {
@@ -1546,7 +1707,25 @@ HUDManager.storeLog = function(content) {
 };
 
 HUDManager.openLink = function(url) {
-	require('nw.gui').Shell.openExternal(url);
+	// In browser environments, use window.open. In NW.js/RPG Maker (Node) this will
+	// still work in most cases, but if nw.gui is available prefer it.
+	try {
+		if(typeof require === 'function') {
+			try {
+				const nw = require('nw.gui');
+				if(nw && nw.Shell && typeof nw.Shell.openExternal === 'function') {
+					nw.Shell.openExternal(url);
+					return;
+				}
+			} catch(_) {
+				// fallthrough to window.open
+			}
+		}
+		window.open(url, '_blank');
+	} catch(e) {
+		// Last resort
+		console.log('Unable to open link: ' + url);
+	}
 };
 
 //-----------------------------------------------------------------------------
@@ -1616,9 +1795,65 @@ Game_Temp.prototype.initialize = function() {
 // Game_Map
 //-----------------------------------------------------------------------------
 
+_.Game_Map_initialize = Game_Map.prototype.initialize;
+Game_Map.prototype.initialize = function() {
+	_.Game_Map_initialize.apply(this, arguments);
+	this._currentHUDConfig = "";
+};
+
+_.Game_Map_setup = Game_Map.prototype.setup;
+Game_Map.prototype.setup = function(mapId) {
+	_.Game_Map_setup.apply(this, arguments);
+	if($dataMap && $dataMap.meta) {
+		if($dataMap.meta["HUD Configuration"]) {
+			this._currentHUDConfig = $dataMap.meta["HUD Configuration"].trim();
+		} else if($dataMap.meta["Default HUD Configuration"]) {
+			this._currentHUDConfig = "";
+		}
+	}
+};
+
+Game_Map.prototype.currentHUDConfig = function() {
+	return this._currentHUDConfig;
+};
+
+Game_Map.prototype.setCurrentHUDConfig = function(id) {
+	if(this._currentHUDConfig !== id) {
+		if($gameTemp.isManipulatingHud) {
+			HUDManager.removeInteraction();
+			HUDManager.saveConfig();
+		}
+		this._currentHUDConfig = id;
+		
+		var scene = SceneManager._scene;
+		if(scene.refreshHUD) {
+			scene.refreshHUD();
+		}
+		if($gameTemp.isManipulatingHud) {
+			HUDManager.setupMakerHtml();
+			HUDManager.initHudMaker();
+		}
+		
+	}
+}
+
 _.Game_Map_isEventRunning = Game_Map.prototype.isEventRunning;
 Game_Map.prototype.isEventRunning = function() {
 	return _.Game_Map_isEventRunning.apply(this, arguments) || $gameTemp.isManipulatingHud;
+};
+
+//-----------------------------------------------------------------------------
+// Game_Interpreter
+//-----------------------------------------------------------------------------
+
+_.Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+Game_Interpreter.prototype.pluginCommand = function(command, args) {
+	_.Game_Interpreter_pluginCommand.apply(this, arguments);
+	if(command.trim().toLowerCase() === 'setdefaulthudconfiguration') {
+		$gameMap.setCurrentHUDConfig("");
+	} else if(command.trim().toLowerCase() === 'sethudconfiguration') {
+		$gameMap.setCurrentHUDConfig(args[0]);
+	}
 };
 
 //-----------------------------------------------------------------------------
@@ -1626,13 +1861,13 @@ Game_Map.prototype.isEventRunning = function() {
 //-----------------------------------------------------------------------------
 
 Object.defineProperties(Game_BattlerBase.prototype, {
-    // Max TP
-    mtp: { 
-    	get: function() { 
-    		return this.maxTp(); 
-    	}, 
-    	configurable: true 
-    }
+	// Max TP
+	mtp: {
+		get: function() { 
+			return this.maxTp(); 
+		}, 
+		configurable: true 
+	}
 });
 
 //-----------------------------------------------------------------------------
@@ -1643,9 +1878,15 @@ _.Scene_Map_start = Scene_Map.prototype.start;
 Scene_Map.prototype.start = function() {
 	_.Scene_Map_start.apply(this, arguments);
 	if(this._hud) {
-		HUDManager.setup($dataMapHUD, this._hud);
-		this._hud.refresh();
+		this.refreshHUD();
 		this.createHudUpperLayer();
+	}
+};
+
+Scene_Map.prototype.refreshHUD = function() {
+	if(this._hud) {
+		HUDManager.setup($dataMapHUD[$gameMap.currentHUDConfig()] || [], this._hud);
+		this._hud.refresh();
 	}
 };
 
@@ -1707,9 +1948,15 @@ _.Scene_Battle_start = Scene_Battle.prototype.start;
 Scene_Battle.prototype.start = function() {
 	_.Scene_Battle_start.apply(this, arguments);
 	if(this._hud) {
-		HUDManager.setup($dataBattleHUD, this._hud);
-		this._hud.refresh();
+		this.refreshHUD();
 		this.createHudUpperLayer();
+	}
+};
+
+Scene_Battle.prototype.refreshHUD = function() {
+	if(this._hud) {
+		HUDManager.setup($dataBattleHUD[$gameMap.currentHUDConfig()] || [], this._hud);
+		this._hud.refresh();
 	}
 };
 
@@ -1764,10 +2011,6 @@ Scene_Battle.prototype.endHud = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDCursor
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDCursor() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDCursor.prototype = Object.create(Sprite.prototype);
 Sprite_HUDCursor.prototype.constructor = Sprite_HUDCursor;
@@ -1880,10 +2123,6 @@ Sprite_HUDCursor.prototype.getVerticalLine = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDObject
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDObject() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDObject.prototype = Object.create(Sprite.prototype);
 Sprite_HUDObject.prototype.constructor = Sprite_HUDObject;
@@ -2207,6 +2446,7 @@ Sprite_HUDObject.prototype.refresh = function(refreshProperties) {
 Sprite_HUDObject.prototype.refreshProperties = function() {
 	this.updateRealScale();
 	this._condition = this["Condition"];
+	//this._conditionFunction = new Function(this._condition);
 	this.updateActivity();
 	if(this.isTarget) {
 		this.updateConditionInput();
@@ -2219,6 +2459,7 @@ Sprite_HUDObject.prototype.updateActivity = function() {
 	} else {
 		try {
 			this._isActive = !!eval(this._condition);
+			//this._isActive = !!this._conditionFunction();
 		} catch(e) {
 			console.log(this._condition + " \n" + e);
 			alert("There is an error with \"" + this._condition + "\" Press F8 to see more!");
@@ -2293,10 +2534,6 @@ Sprite_HUDObject.prototype.resizeBitmap = function(bit, width, height) {
 //-----------------------------------------------------------------------------
 // Sprite_HUDText
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDText() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDText.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDText.prototype.constructor = Sprite_HUDText;
@@ -2408,7 +2645,7 @@ Sprite_HUDText.prototype.getNewValue = function() {
 
 Sprite_HUDText.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	const newValue = this.getNewValue();
 	if(this._value !== newValue) {
 		this._value = newValue;
@@ -2441,10 +2678,6 @@ Sprite_HUDText.prototype.refreshProperties = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDTextEx
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDTextEx() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDTextEx.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDTextEx.prototype.constructor = Sprite_HUDTextEx;
@@ -2516,7 +2749,7 @@ Sprite_HUDTextEx.prototype.initialize = function(info) {
 
 Sprite_HUDTextEx.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	const newValue = this.convertEscapeCharacters(this["Value"]);
 	if(this._value !== newValue) {
 		this._value = newValue;
@@ -2591,15 +2824,21 @@ _.setupYEPMessageCore = function() {
 
 };
 
+_.convertOldData = function() {
+	if(Array.isArray($dataMapHUD)) {
+		$dataMapHUD = {"": $dataMapHUD};
+	}
+	if(Array.isArray($dataBattleHUD)) {
+		$dataBattleHUD = {"": $dataBattleHUD};
+	}
+}
+
 SRD.NotetagGetters.push(_.setupYEPMessageCore);
+SRD.NotetagGetters.push(_.convertOldData);
 
 //-----------------------------------------------------------------------------
 // Sprite_HUDShape
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDShape() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDShape.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDShape.prototype.constructor = Sprite_HUDShape;
@@ -2782,10 +3021,6 @@ Sprite_HUDShape.prototype.refreshProperties = function() {
 // Sprite_HUDImage
 //-----------------------------------------------------------------------------
 
-function Sprite_HUDImage() {
-	this.initialize.apply(this, arguments);
-}
-
 Sprite_HUDImage.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDImage.prototype.constructor = Sprite_HUDImage;
 
@@ -2902,10 +3137,6 @@ Sprite_HUDImage.prototype.refreshProperties = function() {
 // Sprite_HUDCodeImage
 //-----------------------------------------------------------------------------
 
-function Sprite_HUDCodeImage() {
-	this.initialize.apply(this, arguments);
-}
-
 Sprite_HUDCodeImage.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDCodeImage.prototype.constructor = Sprite_HUDCodeImage;
 
@@ -3013,7 +3244,7 @@ Sprite_HUDCodeImage.prototype.getNewImage = function() {
 	
 Sprite_HUDCodeImage.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	let newValue = this._value;
 	newValue = this.getNewImage();
 	if(this._value !== newValue) {
@@ -3056,10 +3287,6 @@ Sprite_HUDCodeImage.prototype.refreshProperties = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDGauge
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDGauge() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDGauge.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDGauge.prototype.constructor = Sprite_HUDGauge;
@@ -3204,7 +3431,7 @@ Sprite_HUDGauge.prototype.getMaxValue = function() {
 
 Sprite_HUDGauge.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	const newValue = this.getCurrentValue();
 	const newMax = this.getMaxValue();
 	if(this._value !== newValue || this._maxvalue !== newMax) {
@@ -3256,10 +3483,6 @@ Sprite_HUDGauge.prototype.refreshProperties = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDImageGauge
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDImageGauge() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDImageGauge.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDImageGauge.prototype.constructor = Sprite_HUDImageGauge;
@@ -3384,7 +3607,7 @@ Sprite_HUDImageGauge.prototype.getMaxValue = function() {
 
 Sprite_HUDImageGauge.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	const newValue = this.getCurrentValue();
 	const newMax = this.getMaxValue();
 	if(this._value !== newValue || this._maxvalue !== newMax) {
@@ -3482,10 +3705,6 @@ Sprite_HUDImageGauge.prototype.setupSnaps2 = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDImageText
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDImageText() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDImageText.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDImageText.prototype.constructor = Sprite_HUDImageText;
@@ -3592,7 +3811,7 @@ Sprite_HUDImageText.prototype.getValue = function() {
 
 Sprite_HUDImageText.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	const newValue = this.getValue();
 	if(this._value !== newValue) {
 		this._value = newValue;
@@ -3661,10 +3880,6 @@ Sprite_HUDImageText.prototype.refreshProperties = function() {
 //-----------------------------------------------------------------------------
 // Sprite_HUDFace
 //-----------------------------------------------------------------------------
-
-function Sprite_HUDFace() {
-	this.initialize.apply(this, arguments);
-}
 
 Sprite_HUDFace.prototype = Object.create(Sprite_HUDObject.prototype);
 Sprite_HUDFace.prototype.constructor = Sprite_HUDFace;
@@ -3766,7 +3981,7 @@ Sprite_HUDFace.prototype.getActorId = function() {
 
 Sprite_HUDFace.prototype.update = function() {
 	Sprite_HUDObject.prototype.update.call(this);
-	if(!this._isActive) return;
+	if(!this._isVisible) return;
 	const newValue = this.getActorId();
 	if(this._value !== newValue || this._curFace !== this._actor.faceName()) {
 		this._value = newValue;

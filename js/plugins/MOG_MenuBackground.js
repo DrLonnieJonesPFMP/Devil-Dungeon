@@ -2,56 +2,54 @@
 // MOG_MenuBackground.js
 //=============================================================================
 /*:
- * @plugindesc (v1.2) O plugin permite mudar a imagem de fundo do menu.
+ * @plugindesc (v1.2) This plugin allows you to change the menu background image.
  * @author Moghunter
  *
  * @param Disable Scenes
- * @desc Definição das cenas que terão o efeito desativado.
- * Scene_Name1 , Scene_Name2 , Scene_Name3 ...
- * @default Scene_Test1,Scene_Test2,Scene_Test3
+ * @desc Definition of the scenes that will have the effect disabled.
+ * Scene_Name1, Scene_Name2, Scene_Name3 ...
+ * @default Scene_Test1, Scene_Test2, Scene_Test3
  *
  * @param Default FileName
- * @desc Definição do nome de arquivo. 
+ * @desc Definition of file name.
  * @default Pic_1
  *
  * @param Unique Backgrounds
- * @desc Cada cena terá uma imagem diferente. 
+ * @desc Each scene will have a different image.
  * @default false
  *
- * @param Sufix FileName
- * @desc Definição do sufixo nos background únicos. 
+ * @param Suffix FileName
+ * @desc Definition of the suffix in the unique backgrounds.
  * @default _back
- * 
+ *
  * @param Window Opacity
- * @desc Definição da transparência da janela. 
- * @default 30 
+ * @desc Definition of window transparency.
+ * @default 30
  *
  * @param Scroll X-Axis
- * @desc Definição da velocidade de deslize na horizontal. 
+ * @desc Defines the horizontal scrolling speed.
  * @default 0
  *
  * @param Scroll Y-Axis
- * @desc Definição da velocidade de deslize na vertical. 
+ * @desc Defines the vertical scrolling speed.
  * @default 0
  *
  * @help
  * =============================================================================
  * +++ MOG - Menu Background (v1.2) +++
- * By Moghunter 
+ * By Moghunter
  * https://atelierrgss.wordpress.com/
  * =============================================================================
- * O plugin permite mudar a imagem de fundo do menu.
- * É possivel ativar uma imagem diferente para cada cena ou desativar a imagem
- * de fundo em cenas especificas.
+ * This plugin allows you to change the menu background image.
+ * You can activate a different image for each scene or deactivate the background image in specific scenes.
  * =============================================================================
- * As imagens do background deverão ficar na pasta /img/pictures/
+ * Background images should be located in the /img/pictures/ folder.
  * =============================================================================
- * No caso da opção Unique Backgrounds estiver ativada cada imagem de fundo 
- * deverá seguir essa nomeação.
+ * If the Unique Backgrounds option is enabled, each background image should follow this naming convention.
  *
  * SCENE_NAME + _back.png
  *
- * Exemplo.
+ * Example.
  *
  * Scene_Menu_back.png
  * Scene_Item_back.png
@@ -61,15 +59,15 @@
  * =============================================================================
  * PLUGIN COMMAND
  * =============================================================================
- * Para mudar a imagem de fundo durante o jogo use o comando abaixo.
+ * To change the background image during the game, use the command below.
  *
- * backgroundName : FILE_NAME
- * 
+ * backgroundName: FILE_NAME
+ *
  * =============================================================================
- * HISTÓRICO
- * =============================================================================  
- * v1.2 - Compatibilidade com MOG_PictureGalery. 
- * v1.1 - Melhoria na codificação.
+ * HISTORY
+ * =============================================================================
+ * v1.2 - Compatibility with MOG_PictureGalery.
+ * v1.1 - Improved encoding.
  */
 
 //=============================================================================

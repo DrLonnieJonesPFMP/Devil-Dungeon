@@ -363,7 +363,6 @@
  *  - Brightness [0 ~ 1]
  *  - Grayscale [0 ~ 1]
  *
- *
  * ==========================================================================
  *  End of Help File
  * ==========================================================================
@@ -508,74 +507,132 @@ _.touchInput = String(params['Color Mouse/Touch Input']).trim().toLowerCase() ==
 _.xOffset = 40;
 
 _.getRealFilePath = function(p) {
-	const path = require('path');
-	const base = path.dirname(process.mainModule.filename);
-	return path.join(base, p);
+	if(!_.isNodeJs) return p;
+	try {
+		const path = require('path');
+		const base = path.dirname(process.mainModule.filename);
+		return path.join(base, p);
+	} catch(e) {
+		return p;
+	}
 };
 
 _.getFilePathData = function() {
-	var path = require('path');
-	var base = path.dirname(process.mainModule.filename);
-	return path.join(base, 'data/');
+	if(!_.isNodeJs) return 'data/';
+	try {
+		var path = require('path');
+		var base = path.dirname(process.mainModule.filename);
+		return path.join(base, 'data/');
+	} catch(e) {
+		return 'data/';
+	}
 };
 
 _.getFolderListNodeJs = function() {
+	// In browser mode, return data stored in fileInfoStuff (loaded from cc-info.sumrndmdde)
+	if(!_.isNodeJs) {
+		return (this.fileInfoStuff && this.fileInfoStuff.folders) ? this.fileInfoStuff.folders : [];
+	}
 	const result = [];
-	const fs = require('fs');
-	const location = this.getRealFilePath(this.path);
-	const files = fs.readdirSync(location);
-	for(let i = 0; i < files.length; i++) {
-		const file = location + files[i];
-		const stat = fs.statSync(file);
-		if(stat && stat.isDirectory()) {
-			result.push(files[i]);
+	try {
+		const fs = require('fs');
+		const location = this.getRealFilePath(this.path);
+		const files = fs.readdirSync(location);
+		for(let i = 0; i < files.length; i++) {
+			const file = location + files[i];
+			const stat = fs.statSync(file);
+			if(stat && stat.isDirectory()) {
+				result.push(files[i]);
+			}
 		}
+	} catch(e) {
+		console.warn('Unable to read folder list via fs:', e);
 	}
 	return result;
 };
 
 _.getFileListNodeJs = function(folder) {
+	// In browser mode, return file list from loaded fileInfoStuff manifest
+	if(!_.isNodeJs) {
+		if(this.fileInfoStuff && this.fileInfoStuff[folder]) return this.fileInfoStuff[folder];
+		return [];
+	}
 	const result = [];
-	const fs = require('fs');
-	const location = this.getRealFilePath(this.path) + folder + 'walk/';
-	const files = fs.readdirSync(location);
-	for(let i = 0; i < files.length; i++) {
-		const file = location + files[i];
-		const stat = fs.statSync(file);
-		if(!stat) continue;
-		if(!stat.isDirectory() && _.isImageFile(files[i])) {
-			const f = files[i].replace('.png', '');
-			result.push(f);
+	try {
+		const fs = require('fs');
+		const location = this.getRealFilePath(this.path) + folder + 'walk/';
+		const files = fs.readdirSync(location);
+		for(let i = 0; i < files.length; i++) {
+			const file = location + files[i];
+			const stat = fs.statSync(file);
+			if(!stat) continue;
+			if(!stat.isDirectory() && _.isImageFile(files[i])) {
+				const f = files[i].replace('.png', '');
+				result.push(f);
+			}
 		}
+	} catch(e) {
+		console.warn('Unable to read file list via fs:', e);
 	}
 	return result;
 };
 
 _.saveFileInfoStuff = function() {
-	const folds = this.getFolderListNodeJs();
-	this.fileInfoStuff.folders = folds;
-	for(let i = 0; i < folds.length; i++) {
-		const fold = folds[i] + '/';
-		this.fileInfoStuff[fold] = this.getFileListNodeJs(fold);
+	// If not running in Node/NW, persist manifest in localStorage
+	try {
+		const folds = this.getFolderListNodeJs();
+		this.fileInfoStuff.folders = folds;
+		for(let i = 0; i < folds.length; i++) {
+			const fold = folds[i] + '/';
+			this.fileInfoStuff[fold] = this.getFileListNodeJs(fold);
+		}
+		const data = LZString.compressToBase64(JSON.stringify(this.fileInfoStuff));
+		if(!_.isNodeJs) {
+			try {
+				localStorage.setItem('cc-info.sumrndmdde', data);
+				return;
+			} catch(e) {
+				console.warn('Unable to save cc-info to localStorage', e);
+			}
+		}
+		// Node/NW fallback
+		const fs = require('fs');
+		const dirPath = this.getFilePathData();
+		const filePath = dirPath + 'cc-info.sumrndmdde';
+		fs.writeFileSync(filePath, data);
+	} catch (e) {
+		console.log("File does not exist or could not be saved!", e);
+		if(typeof alert === 'function') alert("File does not exist! Please create it or allow saving.");
 	}
-	const data = LZString.compressToBase64(JSON.stringify(this.fileInfoStuff));
-	const fs = require('fs');
-	const dirPath = this.getFilePathData();
-	const filePath = dirPath + 'cc-info.sumrndmdde';
-	fs.writeFileSync(filePath, data);
 };
 
 _.loadSaveInfoFile = function() {
+	// Try XHR to data/ first (for deployed data), then fallback to localStorage if present
 	var xhr = new XMLHttpRequest();
 	var url = 'data/cc-info.sumrndmdde';
 	xhr.open('GET', url);
 	xhr.onload = function() {
 		if (xhr.status < 400) {
-			this.fileInfoStuff = JSON.parse(LZString.decompressFromBase64(xhr.responseText));
+			try {
+				this.fileInfoStuff = JSON.parse(LZString.decompressFromBase64(xhr.responseText));
+			} catch(e) {
+				console.warn('Failed parsing cc-info from XHR', e);
+			}
 		}
-	};
+	}.bind(this);
 	xhr.onerror = function() {};
 	xhr.send();
+	// localStorage fallback
+	try {
+		var stored = localStorage.getItem('cc-info.sumrndmdde');
+		if(stored) {
+			try {
+				this.fileInfoStuff = JSON.parse(LZString.decompressFromBase64(stored));
+			} catch(e) {
+				console.warn('Failed parsing cc-info from localStorage', e);
+			}
+		}
+	} catch(e) {}
 };
 
 _.getFolderList = function() {
@@ -671,9 +728,9 @@ _.checkFileExists();
 // DataManager
 //-----------------------------------------------------------------------------
 
-DataManager._testExceptions.push("CharacterCreator.json");
+if (Utils.isNwjs()) { DataManager._testExceptions.push("CharacterCreator.json"); }
 
-DataManager._databaseFiles.push({name: '$dataCharacterCreator', src: "CharacterCreator.json"});
+if (Utils.isNwjs()) { DataManager._databaseFiles.push({name: '$dataCharacterCreator', src: "CharacterCreator.json"}); }
 
 _.DataManager_createGameObjects = DataManager.createGameObjects;
 DataManager.createGameObjects = function() {

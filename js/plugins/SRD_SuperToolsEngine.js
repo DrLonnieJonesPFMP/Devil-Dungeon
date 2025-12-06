@@ -181,12 +181,11 @@ function WindowManager() {
 }
 
 // Fix the flag check for 1.6 editor and 1.5 or below project
-// Guard access to `process` so this file can run in browsers without Node
-if(typeof process !== 'undefined' && process.versions && process.versions['node-webkit'] >= "0.13.0" && Utils.RPGMAKER_VERSION < "1.6.0") {
+if(process.versions['node-webkit'] >= "0.13.0" && Utils.RPGMAKER_VERSION < "1.6.0") {
 
 Utils.isOptionValid = function(name) {
 	if (location.search.slice(1).split('&').contains(name)) {return 1;};
-	if (typeof nw !== "undefined" && nw.App && nw.App.argv && nw.App.argv.length > 0 && nw.App.argv[0].split('&').contains(name)) {return 1;};
+	if (typeof nw !== "undefined" && nw.App.argv.length > 0 && nw.App.argv[0].split('&').contains(name)) {return 1;};
 	return 0;
 };
 
@@ -215,17 +214,10 @@ _.open = String(params['Auto Open Window']).trim().toLowerCase() === 'true';
 _.banList = JSON.parse(params['Menu Editor Exempt List']);
 
 _.isPlaytest = Utils.isOptionValid('test') && Utils.isNwjs();
-_.isNewNWjs = (typeof process !== 'undefined' && process.versions && process.versions['node-webkit'] >= "0.13.0");
+_.isNewNWjs = process.versions['node-webkit'] >= "0.13.0";
 
 if(_.isPlaytest && _.isNewNWjs) {
-	if(typeof require === 'function') {
-		try {
-			const fs = require('fs');
-			if(!fs.existsSync("supertoolsengine.html")) fs.writeFileSync("supertoolsengine.html", "<!DOCTYPE html><html><head><title></title></head><body></body></html>");
-		} catch(e) {
-			// ignore - running in an environment without fs
-		}
-	}
+	if(!require('fs').existsSync("supertoolsengine.html")) require('fs').writeFileSync("supertoolsengine.html", "<!DOCTYPE html><html><head><title></title></head><body></body></html>");
 }
 
 _.pad = function(value) {
@@ -520,13 +512,8 @@ MakerManager.deleteMaker = function() {
 };
 
 MakerManager.createWindow = function() {
-	// Attempt to use NW.js gui when available; otherwise create a fallback popup window
-	let gui;
-	try {
-		if(typeof require === 'function') gui = require('nw.gui');
-	} catch(e) { gui = null; }
-
-	if(gui && _.isNewNWjs) {
+	const gui = require('nw.gui');
+	if(_.isNewNWjs) {
 		gui.Window.open('supertoolsengine.html', {
 			title: "Super Tools Engine  -  Core Editor  |  SumRndmDde",
 			width: 600,
@@ -535,13 +522,12 @@ MakerManager.createWindow = function() {
 			icon: "www/icon/icon.png"
 		}, function(newWindow) {
 			this._window = newWindow;
-			if(this._window.setShowInTaskbar) this._window.setShowInTaskbar(false);
+			this._window.setShowInTaskbar(false);
 			this.moveWindow();
 			this.setupWindow();
-			if(this._window.on) this._window.on('loaded', this.onWindowLoad.bind(this));
+			this._window.on('loaded', this.onWindowLoad.bind(this));
 		}.bind(this));
-	} else if(gui) {
-		// older NW.js fallback
+	} else {
 		this._window = gui.Window.open('', {
 			title: "Super Tools Engine  -  Core Editor  |  SumRndmDde",
 			width: 600,
@@ -550,19 +536,7 @@ MakerManager.createWindow = function() {
 			toolbar: false,
 			icon: "www/icon/icon.png"
 		});
-		if(this._window && this._window.setShowInTaskbar) this._window.setShowInTaskbar(false);
-	} else {
-		// Browser fallback: open a standard popup window for the editor UI
-		try {
-			const popup = window.open('', 'SuperToolsEngine', 'width=600,height=680,resizable=yes');
-			this._window = { window: popup, close: function() { popup.close(); }, focus: function(){ popup.focus(); }, on: function(){} };
-			this.moveWindow();
-			this.setupWindow();
-			// build UI when popup loads
-			popup.onload = this.onWindowLoad.bind(this);
-		} catch(e) {
-			console.log('Unable to create editor window:', e);
-		}
+		this._window.setShowInTaskbar(false);
 	}
 };
 
@@ -654,54 +628,47 @@ MakerManager.closeTheWindows = function() {
 };
 
 MakerManager.setupGameWindow = function() {
-	// Try to bind to NW.js window events; otherwise provide no-op behavior in browser
-	let gui, win;
-	try {
-		if(typeof require === 'function') gui = require('nw.gui');
-	} catch(e) { gui = null; }
-	try {
-		if(gui && gui.Window && typeof gui.Window.get === 'function') win = gui.Window.get();
-	} catch(e) { win = null; }
+	const gui = require('nw.gui');
+	const win = gui.Window.get();
 
-	if(win) {
-		//Set up closing
-		try { win.removeAllListeners('close'); } catch(e) {}
-		try { win.on('close', this.onWindowClose.bind(win)); } catch(e) {}
+	//Set up closing
+	win.removeAllListeners('close');
+	win.on('close', this.onWindowClose.bind(win));
 
-		//Set up connection
-		if(_.connect) {
-			try { win.removeAllListeners('restore'); } catch(e) {}
-			try { win.removeAllListeners('focus'); } catch(e) {}
-			try { win.removeAllListeners('minimize'); } catch(e) {}
+	//Set up connection
+	if(_.connect) {
+		win.removeAllListeners('restore');
+		win.removeAllListeners('focus');
+		win.removeAllListeners('minimize');
 
-			try {
-				win.on('focus', function() {
-					if(MakerManager.window) {
-						if(MakerManager.window.setAlwaysOnTop) MakerManager.window.setAlwaysOnTop(true);
-						MakerManager.window.restore && MakerManager.window.restore();
-						if(MakerManager.window.setAlwaysOnTop) MakerManager.window.setAlwaysOnTop(false);
-					}
-				});
-				win.on('restore', function() {
-					if(MakerManager.window) MakerManager.window.restore && MakerManager.window.restore();
-				});
-				win.on('minimize', function() {
-					if(MakerManager.window) MakerManager.window.minimize && MakerManager.window.minimize();
-				});
-			} catch(e) {}
-		}
-
-		//Set up movement
-		try { win.removeAllListeners('move'); } catch(e) {}
-		try {
-			win.on('move', function(x, y) {
-				if(ConfigManager.STE_Follow && MakerManager.window) {
-					MakerManager.window.x = x + Graphics.width + ConfigManager.STE_FollowX;
-					MakerManager.window.y = y + ConfigManager.STE_FollowY;
-				}
-			});
-		} catch(e) {}
+		win.on('focus', function() {
+			if(MakerManager.window) {
+				MakerManager.window.setAlwaysOnTop(true);
+				//MakerManager.window.show();
+				MakerManager.window.restore();
+				MakerManager.window.setAlwaysOnTop(false);
+			}
+		});
+		win.on('restore', function() {
+			if(MakerManager.window) {
+				MakerManager.window.restore();
+			}
+		});
+		win.on('minimize', function() {
+			if(MakerManager.window) {
+				MakerManager.window.minimize();
+			}
+		});
 	}
+
+	//Set up movement
+	win.removeAllListeners('move');
+	win.on('move', function(x, y) {
+		if(ConfigManager.STE_Follow && MakerManager.window) {
+			MakerManager.window.x = x + Graphics.width + ConfigManager.STE_FollowX;
+			MakerManager.window.y = y + ConfigManager.STE_FollowY;
+		}
+	});
 };
 
 MakerManager.setupWindowHtml = function() {
@@ -1369,99 +1336,47 @@ MakerManager.initManager();
 //-----------------------------------------------------------------------------
 
 FileManager.filePath = function(location) {
-	// Return empty string in non-NW environments
 	if(!Utils.isNwjs()) return '';
-	try {
-		if(typeof require !== 'function') return '';
-		const path = require('path');
-		const base = path.dirname(process.mainModule.filename);
-		return path.join(base, location);
-	} catch(e) {
-		return '';
-	}
+	const path = require('path');
+	const base = path.dirname(process.mainModule.filename);
+	return path.join(base, location);
 };
 
 FileManager.saveData = function(variable, filename) {
+	if(!Utils.isNwjs()) return;
+	if(this.dataPath === undefined) this.dataPath = this.filePath('data/');
+	const fs = require('fs');
 	const data = JSON.stringify(variable);
-	// NW.js filesystem if available
-	if(Utils.isNwjs()) {
-		try {
-			if(typeof require === 'function') {
-				if(this.dataPath === undefined) this.dataPath = this.filePath('data/');
-				const fs = require('fs');
-				const filePath = this.dataPath + filename;
-				fs.writeFileSync(filePath, data);
-				return;
-			}
-		} catch(e) {}
-	}
-	// Browser fallback: store in localStorage
-	try {
-		const key = 'STE:data:' + filename;
-		localStorage.setItem(key, data);
-	} catch(e) {
-		// ignore storage errors
-	}
+	const filePath = this.dataPath + filename;
+	fs.writeFileSync(filePath, data);
 };
 
 FileManager.checkDataExists = function(filename, info) {
+	if(!Utils.isNwjs()) return;
 	info = info || "[]";
-	// NW.js filesystem if available
-	if(Utils.isNwjs()) {
-		try {
-			if(typeof require === 'function') {
-				if(this.dataPath === undefined) this.dataPath = this.filePath('data/');
-				const fs = require('fs');
-				const filePath = this.dataPath + filename;
-				if(!fs.existsSync(filePath)) {
-					fs.writeFileSync(filePath, info);
-				}
-				return;
-			}
-		} catch(e) {}
-	}
-	// Browser fallback: ensure localStorage key exists
-	try {
-		const key = 'STE:data:' + filename;
-		if(localStorage.getItem(key) === null) {
-			localStorage.setItem(key, info);
-		}
-	} catch(e) {
-		// ignore
+	if(this.dataPath === undefined) this.dataPath = this.filePath('data/');
+	const fs = require('fs');
+	const filePath = this.dataPath + filename;
+	if(!fs.existsSync(filePath)) {
+		fs.writeFileSync(filePath, info);
 	}
 };
 
 FileManager.getFileList = function(section, folder) {
+	if(!Utils.isNwjs()) return [];
 	const result = [];
-	// NW.js filesystem if available
-	if(Utils.isNwjs()) {
-		try {
-			if(typeof require === 'function') {
-				const fs = require('fs');
-				const location = this.filePath(`img/SumRndmDde/${section}/${folder}/`);
-				const files = fs.readdirSync(location);
-				for(let i = 0; i < files.length; i++) {
-					const file = location + files[i];
-					const stat = fs.statSync(file);
-					if(!stat) continue;
-					if(!stat.isDirectory() && this.isImageFile(files[i])) {
-						const f = files[i].replace('.png', '');
-						result.push(f);
-					}
-				}
-				return result;
-			}
-		} catch(e) {}
-	}
-	// Browser fallback: try to read a manifest list from localStorage
-	try {
-		const key = `STE:files:${section}:${folder}`;
-		const raw = localStorage.getItem(key);
-		if(raw) {
-			const arr = JSON.parse(raw);
-			if(Array.isArray(arr)) return arr.slice();
+	const fs = require('fs');
+	const location = this.filePath(`img/SumRndmDde/${section}/${folder}/`);
+	const files = fs.readdirSync(location);
+	for(let i = 0; i < files.length; i++) {
+		const file = location + files[i];
+		const stat = fs.statSync(file);
+		if(!stat) continue;
+		if(!stat.isDirectory() && this.isImageFile(files[i])) {
+			const f = files[i].replace('.png', '');
+			result.push(f);
 		}
-	} catch(e) {}
+	}
 	return result;
 };
 
@@ -1470,8 +1385,7 @@ FileManager.isImageFile = function(filename) {
 };
 
 FileManager.getFirstFile = function(section, folder) {
-	const list = this.getFileList(section, folder);
-	const result = list[0];
+	const result = this.getFileList(section, folder)[0];
 	return (result) ? result : '';
 };
 
@@ -1997,67 +1911,35 @@ DebugManager.restartGameForRealizies = function() {
 };
 
 DebugManager.localPath = function() {
-	try {
-		if(typeof require !== 'function') return '';
-		const path = require('path');
-		return path.dirname(process.mainModule.filename);
-	} catch(e) {
-		return '';
-	}
+	const path = require('path');
+	return path.dirname(process.mainModule.filename);
 };
 
 DebugManager.getReopenPath = function() {
-	const lp = this.localPath();
-	return lp ? (lp + "ShouldOpenSTE") : "ShouldOpenSTE";
+	return this.localPath() + "ShouldOpenSTE";
 };
 
 DebugManager.setToReopen = function(id) {
-	// NW.js filesystem if available
-	try {
-		if(Utils.isNwjs() && typeof require === 'function') {
-			const fs = require('fs');
-			const filePath = this.getReopenPath();
-			fs.writeFileSync(filePath, String(id));
-			return;
-		}
-	} catch(e) {}
-	// Browser fallback: localStorage
-	try {
-		localStorage.setItem('STE:reopen', String(id));
-	} catch(e) {}
+	const fs = require('fs');
+	const filePath = this.getReopenPath();
+	fs.writeFileSync(filePath, String(id));
 };
 
 DebugManager.removeReopener = function() {
-	try {
-		if(Utils.isNwjs() && typeof require === 'function') {
-			const fs = require('fs');
-			const filePath = this.getReopenPath();
-			if (fs.existsSync(filePath)) {
-				fs.unlinkSync(filePath);
-			}
-			return;
-		}
-	} catch(e) {}
-	try { localStorage.removeItem('STE:reopen'); } catch(e) {}
+	const fs = require('fs');
+	const filePath = this.getReopenPath();
+	if (fs.existsSync(filePath)) {
+		fs.unlinkSync(filePath);
+	}
 };
 
 DebugManager.isSetToReopen = function() {
-	try {
-		if(Utils.isNwjs() && typeof require === 'function') {
-			const fs = require('fs');
-			const filePath = this.getReopenPath();
-			if(!fs.existsSync(filePath)) {
-				return false;
-			} else {
-				return fs.readFileSync(filePath, { encoding: 'utf8' });
-			}
-		}
-	} catch(e) {}
-	try {
-		const val = localStorage.getItem('STE:reopen');
-		return val ? val : false;
-	} catch(e) {
+	const fs = require('fs');
+	const filePath = this.getReopenPath();
+	if(!fs.existsSync(filePath)) {
 		return false;
+	} else {
+		return fs.readFileSync(filePath, { encoding: 'utf8' });
 	}
 };
 
